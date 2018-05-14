@@ -27,20 +27,28 @@ local nine = {
 	]]
 }
 
-local function vertical(state, x, w, sx, row, first)
-	local function add(state, x, y, w, h, sx, sy, row, col)
-		state.areas[#state.areas + 1] = {
-			x   = x,   -- start x
-			y   = y,   -- start y
-			w   = w,   -- end x
-			h   = h,   -- end y
-			sx  = sx,  -- scale on x (bool)
-			sy  = sy,  -- scale on y (bool)
-			row = row, -- row number
-			col = col, -- col number
-		}
-	end
+local function isLoveType (object)
+  if not type(object) == "userdata" or not object.type then
+    return nil
+  else
+    return object:type()
+  end
+end
 
+local function add(state, x, y, w, h, sx, sy, row, col)
+  state.areas[#state.areas + 1] = {
+    x   = x,   -- start x
+    y   = y,   -- start y
+    w   = w,   -- end x
+    h   = h,   -- end y
+    sx  = sx,  -- scale on x (bool)
+    sy  = sy,  -- scale on y (bool)
+    row = row, -- row number
+    col = col, -- col number
+  }
+end
+
+local function vertical(state, x, w, sx, row, first)
 	local scale_y        = state.scale_y
 	local current_pixel  = 0
 	local col            = 0
@@ -217,9 +225,10 @@ local function draw(p, x, y, w, h, content_box)
 
 	love.graphics.draw(p.batch)
 
-	if debug_draw then
-		love.graphics.setColor(255, 0, 0, 255)
-		love.graphics.rectangle("line", get_border_box(p, cx, cy, cw, ch)) --Fixes debug_draw drawing the box littler than how it was
+	if debug_draw then --luacheck: ignore
+    love.graphics.setColor(255, 0, 0, 255)
+     --Using get_border_box fixes debug_draw drawing the box littler than how it was
+		love.graphics.rectangle("line", get_border_box(p, cx, cy, cw, ch))
 		love.graphics.setColor(0, 255, 0, 255)
 		love.graphics.rectangle("line", cx, cy, cw, ch)
 		love.graphics.setColor(255, 255, 255, 255)
@@ -272,11 +281,11 @@ return metadata]]
 	--Save the data in a file
 	love.filesystem.write(filename or "", str or "")
 
-	--Also save the image if required
-	if save_image then
-		local filename = (filename:match("(.-)%..-$") or "image")..".png" --Maybe this should be ".9.png" ?
-		local data = state.image:getData()
-		data:encode(filename)
+	--Also save the image if required (and possible)
+  if save_image and state.imageData then
+     --Maybe this should be ".9.png" ?
+		local name = (filename:match("(.-)%..-$") or "image")..".png"
+		state.imageData:encode(name)
 	end
 
 	return str
@@ -335,16 +344,19 @@ local function process(patch)
 	return postprocess(state)
 end
 
-function nine.load(img, metadata)
+function nine.load(data, metadata)
 	-- *.9.png
-	if type(img) == "string" then
-		img  = love.graphics.newImage(img)
-	end
-	
-	local data = img:getData()
-	local w, h = img:getDimensions()
+	local lovetype = isLoveType(data)
+	if type(data) == "string" or lovetype == "FileData" then
+		data  = love.image.newImageData(data)
+  end
 
-	local aw, ah  = img:getWidth()-2, img:getHeight()-2
+  if lovetype ~= "ImageData" then
+		error("bad argument #1 to 'load' (Image expected, got "..(lovetype or type(data))..")", 2)
+	end
+
+	local w, h = data:getDimensions()
+	local aw, ah  = w-2, h-2
 	local asset = love.image.newImageData(aw, ah)
 
 	asset:paste(data, 0, 0, 1, 1, aw, ah)
@@ -389,7 +401,7 @@ function nine.load(img, metadata)
 		end
 
 		-- Bottom row, fill
-		local r, g, b, a = data:getPixel(i, h - 1)
+		r, g, b, a = data:getPixel(i, h - 1)
 
 		-- If we are in a fill stream, check to see if we leave it (not black)
 		if fill_x.x then
@@ -438,7 +450,7 @@ function nine.load(img, metadata)
 			end
 		end
 
-		local r, g, b, a = data:getPixel(w - 1, i)
+		r, g, b, a = data:getPixel(w - 1, i)
 
 		if fill_y.y then
 			if not fill_y.h and (r ~= 0 or g ~= 0 or b ~= 0 or a ~= 255) then
@@ -488,11 +500,12 @@ function nine.load(img, metadata)
 	-- ??????????????????????????
 	-- Sincerely, me.
 	local patch = {
-		image   = image,
-		batch   = love.graphics.newSpriteBatch(image, (#scale_x * 2 + 1) * (#scale_y * 2 + 1)), 
-		pad     = pad,
-		scale_x = scale_x,
-		scale_y = scale_y,
+    imageData = asset,
+		image     = image,
+		batch     = love.graphics.newSpriteBatch(image, (#scale_x * 2 + 1) * (#scale_y * 2 + 1)),
+		pad       = pad,
+		scale_x   = scale_x,
+		scale_y   = scale_y,
 	}
 
 	return process(patch)
@@ -512,15 +525,25 @@ function nine.import (image, metadata)
 	if type(metadata) ~= "table" then
 		error("bad argument #2 to 'import' (table expected, got "..type(metadata)..")", 2)
 	end
-	-- *.9.png
-	if type(image) == "string" then
-		image  = love.graphics.newImage(image)
+  -- *.9.png
+  local imageData
+  local lovetype = isLoveType(image)
+
+  if type(image) == "string" or lovetype == "FileData" then
+    imageData = love.image.newImageData(image)
+		image  = love.graphics.newImage(imageData)
+  end
+
+  if lovetype == "ImageData" then
+    imageData = image
+    image = love.graphics.newImage(imageData)
+  end
+
+	if lovetype ~= "Image" then
+		error("bad argument #1 to 'import' (Image expected, got "..(lovetype or type(image))..")", 2)
 	end
 
-	if not image or not image.type or image:type() ~= "Image" then
-		error("bad argument #1 to 'import' (Image expected, got "..(image.type and image:type() or type(image))..")", 2)
-	end
-
+  metadata.imageData = imageData
 	metadata.image = image
 
 	metadata.batch = love.graphics.newSpriteBatch(image, #metadata.areas)
