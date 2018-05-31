@@ -28,6 +28,9 @@ local patchy = {
 }
 
 local m = love.getVersion() >= 11 and 255 or 1
+local color = function (r, g, b, a)
+  return math.ceil(r*m), math.ceil(g*m), math.ceil(b*m), math.ceil(a*m)
+end
 
 local function isLoveType (object)
   if not type(object) == "userdata" or not object.type then
@@ -228,12 +231,12 @@ local function draw(p, x, y, w, h, content_box)
   love.graphics.draw(p.batch)
 
   if debug_draw then --luacheck: ignore
-    love.graphics.setColor(1*m, 0*m, 0*m, 1*m)
+    love.graphics.setColor(255/m, 0/m, 0/m, 255/m)
      --Using get_border_box fixes debug_draw drawing the box littler than how it was
     love.graphics.rectangle("line", get_border_box(p, cx, cy, cw, ch))
-    love.graphics.setColor(0*m, 1*m, 0*m, 1*m)
+    love.graphics.setColor(0/m, 255/m, 0/m, 255/m)
     love.graphics.rectangle("line", cx, cy, cw, ch)
-    love.graphics.setColor(1*m, 1*m, 1*m, 1*m)
+    love.graphics.setColor(255/m, 255/m, 255/m, 255/m)
   end
 
   -- return content box for lazy people who don't want to call get_content_box again
@@ -389,8 +392,7 @@ function patchy.load(data, metadata)
   -- Scan horizontal rows for 9patch data
   for i=0, w - 1 do
     -- Top row, scale
-    local r, g, b, a = data:getPixel(i, 0)
-    r, g, b, a = r*m, g*m, b*m, a*m
+    local r, g, b, a = color(data:getPixel(i, 0))
 
     -- If we are currently in a scale stream, check to see if we leave it (not black)
     if scale_x[#scale_x].x then
@@ -405,8 +407,7 @@ function patchy.load(data, metadata)
     end
 
     -- Bottom row, fill
-    r, g, b, a = data:getPixel(i, h - 1)
-    r, g, b, a = r*m, g*m, b*m, a*m
+    r, g, b, a = color(data:getPixel(i, h - 1))
 
     -- If we are in a fill stream, check to see if we leave it (not black)
     if fill_x.x then
@@ -443,7 +444,7 @@ function patchy.load(data, metadata)
 
   --same as above, but for height!
   for i=0, h - 1 do
-    local r, g, b, a = data:getPixel(0, i)
+    local r, g, b, a = color(data:getPixel(0, i))
 
     if scale_y[#scale_y].y then
       if not scale_y.h and (r ~= 0 or g ~=0 or b ~= 0 or a ~= 255) then
@@ -455,8 +456,7 @@ function patchy.load(data, metadata)
       end
     end
 
-    r, g, b, a = data:getPixel(w - 1, i)
-    r, g, b, a = r*m, g*m, b*m, a*m
+    r, g, b, a = color(data:getPixel(w - 1, i))
 
     if fill_y.y then
       if not fill_y.h and (r ~= 0 or g ~= 0 or b ~= 0 or a ~= 255) then
