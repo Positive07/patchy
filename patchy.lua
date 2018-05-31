@@ -27,6 +27,8 @@ local patchy = {
   ]]
 }
 
+local m = love.getVersion() >= 11 and 255 or 1
+
 local function isLoveType (object)
   if not type(object) == "userdata" or not object.type then
     return nil
@@ -226,12 +228,12 @@ local function draw(p, x, y, w, h, content_box)
   love.graphics.draw(p.batch)
 
   if debug_draw then --luacheck: ignore
-    love.graphics.setColor(255, 0, 0, 255)
+    love.graphics.setColor(1*m, 0*m, 0*m, 1*m)
      --Using get_border_box fixes debug_draw drawing the box littler than how it was
     love.graphics.rectangle("line", get_border_box(p, cx, cy, cw, ch))
-    love.graphics.setColor(0, 255, 0, 255)
+    love.graphics.setColor(0*m, 1*m, 0*m, 1*m)
     love.graphics.rectangle("line", cx, cy, cw, ch)
-    love.graphics.setColor(255, 255, 255, 255)
+    love.graphics.setColor(1*m, 1*m, 1*m, 1*m)
   end
 
   -- return content box for lazy people who don't want to call get_content_box again
@@ -349,6 +351,7 @@ function patchy.load(data, metadata)
   local lovetype = isLoveType(data)
   if type(data) == "string" or lovetype == "FileData" then
     data  = love.image.newImageData(data)
+	  lovetype = isLoveType(data)
   end
 
   if lovetype ~= "ImageData" then
@@ -387,6 +390,7 @@ function patchy.load(data, metadata)
   for i=0, w - 1 do
     -- Top row, scale
     local r, g, b, a = data:getPixel(i, 0)
+    r, g, b, a = r*m, g*m, b*m, a*m
 
     -- If we are currently in a scale stream, check to see if we leave it (not black)
     if scale_x[#scale_x].x then
@@ -402,6 +406,7 @@ function patchy.load(data, metadata)
 
     -- Bottom row, fill
     r, g, b, a = data:getPixel(i, h - 1)
+    r, g, b, a = r*m, g*m, b*m, a*m
 
     -- If we are in a fill stream, check to see if we leave it (not black)
     if fill_x.x then
@@ -451,6 +456,7 @@ function patchy.load(data, metadata)
     end
 
     r, g, b, a = data:getPixel(w - 1, i)
+    r, g, b, a = r*m, g*m, b*m, a*m
 
     if fill_y.y then
       if not fill_y.h and (r ~= 0 or g ~= 0 or b ~= 0 or a ~= 255) then
@@ -530,13 +536,14 @@ function patchy.import (image, metadata)
   local lovetype = isLoveType(image)
 
   if type(image) == "string" or lovetype == "FileData" then
-    imageData = love.image.newImageData(image)
-    image  = love.graphics.newImage(imageData)
+    image = love.image.newImageData(image)
+    lovetype = isLoveType(image)
   end
 
   if lovetype == "ImageData" then
     imageData = image
     image = love.graphics.newImage(imageData)
+    lovetype = isLoveType(image)
   end
 
   if lovetype ~= "Image" then
